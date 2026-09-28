@@ -1,0 +1,55 @@
+services:
+  varnish:
+    image: varnish:7.6
+    ports:
+      - "80:80"          # only this service is public
+    volumes:
+      - ./default.vcl:/etc/varnish/default.vcl:ro
+      - ./tenants.vcl:/etc/varnish/tenants.vcl:ro
+    command:
+      - "-p"
+      - "workspace_backend=128k"   # headroom for the extra req/bereq headers we set
+      # -F, -f and -a are deliberately NOT set here — the varnish image's
+      # own entrypoint already supplies sensible defaults for all three
+      # (foreground mode, /etc/varnish/default.vcl, port 80) and prepends
+      # them ahead of whatever we put in `command`, so re-specifying any
+      # of them here just creates duplicate/conflicting flags.
+    depends_on:
+      - imgproxy
+    networks:
+      - front
+      - back
+    restart: unless-stopped
+
+  # Stand-in for a customer's image storage — only used so "acme" has
+  # a reachable origin in this local test stack. Not needed in
+  # production once tenants.vcl points at real customer origins.
+  origin:
+    image: nginx:alpine
+    volumes:
+      - ./origin-content:/usr/share/nginx/html:ro
+    networks:
+      - back
+    restart: unless-stopped
+
+  imgproxy:
+    image: ghcr.io/imgproxy/imgproxy:latest   # open-source build
+    environment:
+      IMGPROXY_USE_ETAG: "true"
+      IMGPROXY_ENABLE_WEBP_DETECTION: "true"
+      IMGPROXY_ENFORCE_WEBP: "false"          # we pick format explicitly via f: option
+      IMGPROXY_MAX_SRC_RESOLUTION: "50"       # megapixels — guards against image-bomb sources
+      IMGPROXY_TTL: "2592000"                 # 30d, matches Varnish's beresp.ttl
+      # No IMGPROXY_KEY/IMGPROXY_SALT: signing is skipped because this
+      # service is unreachable from outside the "back" network below.
+      # Add both, plus real signing in default.vcl, if that ever changes.
+    # Deliberately no "ports:" entry — not reachable from the host or
+    # the public internet, only from other containers on "back".
+    networks:
+      - back
+    restart: unless-stopped
+
+networks:
+  front:
+  back:
+    internal: true    # no route to the outside world at all
