@@ -18,7 +18,7 @@
 
 ## Usage
 ```
-GET https://img.yourservice.com/t/acme/products/shoe-42.jpg?w=400&h=300&fit=cover&q=80
+GET http://localhost/t/acme/some/path.jpg?w=300&h=200&fit=cover&q=70
 ```
 Unknown `w`/`h`/`fit`/`q` values fall back to sane defaults rather than
 erroring; unknown `t/<tenant_id>` returns 404.
