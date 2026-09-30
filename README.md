@@ -1,4 +1,4 @@
-# Image proxy service — Varnish + imgproxy
+# Image proxy service
 
 ## Layout
 - `default.vcl` — public entry point: tenant resolution, param
